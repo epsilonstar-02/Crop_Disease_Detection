@@ -1,15 +1,16 @@
+# model_predict.py
+import timm
 import torch
-import numpy as np
+import torch.nn.functional as F
+from torchvision import transforms
 from PIL import Image
-import json
-import pandas as pd
 import google.generativeai as genai
+from report_generator import generate_report
+import tempfile
+import numpy as np
+import base64
 
-# Load your pre-trained model (PyTorch model since it's a .pth file)
-model = torch.load("F:\ML_projects\Crop-Disease Detection\backend\crop_best_model.pth")
-model.eval()  # Set the model to evaluation mode
-
-# Load label mappings (adjust based on your dataset's JSON/CSV)
+# --- Model Configuration ---
 class_names = {
     0: "Cassava Bacterial Blight (CBB)",
     1: "Cassava Brown Streak Disease (CBSD)",
@@ -18,45 +19,115 @@ class_names = {
     4: "Healthy"
 }
 
-# Configure Gemini
-genai.configure(api_key="YOUR_API_KEY")
-model_genai = genai.GenerativeModel('gemini-pro')
+# Initialize model (must match training setup)
+model = timm.create_model("rexnet_150", 
+                         pretrained=False, 
+                         num_classes=len(class_names))
+
+# Load trained weights
+try:
+    checkpoint = torch.load("./crop_best_model.pth", 
+                           map_location=torch.device('cpu'))
+except FileNotFoundError:
+    # Fallback paths to try
+    model_paths = [
+        "./crop_best_model.pth",
+        "./models/crop_best_model.pth",
+        "../models/crop_best_model.pth"
+    ]
+    
+    for path in model_paths:
+        try:
+            checkpoint = torch.load(path, map_location=torch.device('cpu'))
+            print(f"Model loaded from {path}")
+            break
+        except FileNotFoundError:
+            continue
+    else:
+        raise FileNotFoundError("Could not find model file. Please ensure crop_best_model.pth exists in the correct location.")
+
+# Clean state dict (remove DataParallel prefixes)
+state_dict = {k.replace("module.", ""): v for k, v in checkpoint.items()}
+model.load_state_dict(state_dict)
+model.eval()
+
+# --- Image Preprocessing ---
+transform = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], 
+                        std=[0.229, 0.224, 0.225])
+])
 
 def preprocess_image(image):
-    # Resize and normalize the image (adjust to match model's expected input)
-    image = image.resize((224, 224))  # example size
-    # Convert to tensor and normalize according to PyTorch conventions
-    image_tensor = torch.from_numpy(np.array(image).transpose((2, 0, 1))).float() / 255.0
-    # Add batch dimension
-    image_tensor = image_tensor.unsqueeze(0)
-    return image_tensor
+    # Convert to RGB (strip alpha channel if present)
+    image = image.convert("RGB")
+    return image
 
 def predict_disease(image):
-    processed_image = preprocess_image(image)
-    # Move tensor to the same device as the model
-    device = next(model.parameters()).device
-    processed_image = processed_image.to(device)
-    
-    with torch.no_grad():
-        prediction = model(processed_image)
-    
-    # Get the predicted class
-    predicted_class = torch.argmax(prediction, dim=1).item()
-    disease = class_names[predicted_class]
-    return disease
-
-def get_recommendation(disease_name):
-    prompt = f"""
-    As an agricultural expert, provide a concise, bullet-pointed treatment plan for {disease_name} in cassava.
-    Include:
-    - Immediate actions
-    - Long-term prevention
-    - Approved chemicals/organic remedies
-    Avoid markdown formatting.
-    Provide only scientifically validated methods.
-    """
     try:
-        response = model_genai.generate_content(prompt)
-        return response.text
+        # Preprocess image first (convert to RGB)
+        processed_image = preprocess_image(image)
+        
+        # Apply transforms to the processed image
+        img_tensor = transform(processed_image).unsqueeze(0)
+        
+        with torch.no_grad():
+            outputs = model(img_tensor)
+            probabilities = F.softmax(outputs, dim=1)
+        
+        confidence, pred_idx = torch.max(probabilities, 1)
+        return class_names[pred_idx.item()], confidence.item() * 100
+        
     except Exception as e:
-        return f"Recommendation unavailable. Error: {str(e)}"
+        raise RuntimeError(f"Prediction failed: {str(e)}")
+
+# --- Gemini Integration ---
+genai.configure(api_key="AIzaSyD9y4QpCzhbkhpQPbOrmhIMOfiem26IOYw")  # Replace with your key
+# Using gemini-1.5-pro as it's currently the best free model available in the Gemini API
+# It offers significantly improved reasoning, context handling, and multimodal capabilities
+# compared to the 1.0 version while still being available in the free tier
+gemini_model = genai.GenerativeModel('gemini-1.5-pro')
+
+# model_predict.py (Updated Gemini Section)
+def get_recommendation(disease_name):
+    # Explicit cassava context
+    if disease_name == "Healthy":
+        prompt = """As a cassava agricultural expert, list:
+        - 5 essential maintenance practices for healthy cassava
+        - 3 early signs of disease to monitor
+        - Ideal soil/weather conditions
+        Format as bullet points without markdown."""
+    else:
+        prompt = f"""As a cassava disease specialist, create a treatment plan for {disease_name}:
+        - First emergency steps
+        - Approved chemical treatments (specify dosage)
+        - Organic alternatives
+        - Cultural control methods
+        Use bullet points, avoid technical jargon."""
+
+    try:
+        response = gemini_model.generate_content(
+            prompt,
+            generation_config=genai.types.GenerationConfig(
+                temperature=0.3  # Lower = more factual (0-1 scale)
+            )
+        )
+        return response.text.replace("•", "-")  # Normalize bullets
+    except Exception as e:
+        return f"Error generating advice: {str(e)}"
+
+# --- Report Generation ---
+def generate_full_report(image, disease, confidence, recommendation):
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
+            image.save(tmp.name, "JPEG")
+            pdf_base64 = generate_report(
+                tmp.name,
+                disease,
+                confidence,
+                recommendation
+            )
+        return pdf_base64
+    except Exception as e:
+        raise RuntimeError(f"Report generation failed: {str(e)}")

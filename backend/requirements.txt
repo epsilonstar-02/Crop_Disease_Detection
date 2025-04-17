@@ -1,6 +1,12 @@
-tensorflow
+torch
 flask
 streamlit
 requests
 pillow
 google-generativeai
+reportlab
+python-dateutil
+timm
+flask_cors
+dash_bootstrap_components
+dash
