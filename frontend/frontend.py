@@ -1,6 +1,8 @@
 import streamlit as st
 import requests
 from PIL import Image
+import base64
+from datetime import datetime
 
 st.title("🌱 Crop Disease Detector")
 st.write("Upload a crop image for diagnosis")
@@ -23,6 +25,15 @@ if uploaded_file is not None:
                 result = response.json()
                 st.success(f"**Diagnosis**: {result['disease']}")
                 st.info(f"**Recommendation**: {result['recommendation']}")
+                
+                # PDF Download Button
+                pdf_bytes = base64.b64decode(result['pdf'])
+                st.download_button(
+                    label="📥 Download Full Report",
+                    data=pdf_bytes,
+                    file_name=f"crop_report_{datetime.now().strftime('%Y%m%d')}.pdf",
+                    mime="application/pdf"
+                )
             else:
                 st.error(f"Error: {response.json().get('error', 'Unknown error')}")
         except Exception as e:
