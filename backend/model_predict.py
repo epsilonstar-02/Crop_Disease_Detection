@@ -63,15 +63,15 @@ def preprocess_image(image):
     # Convert to RGB (strip alpha channel if present)
     image = image.convert("RGB")
     return image
-
 def predict_disease(image):
     try:
-        # Preprocess image first (convert to RGB)
-        processed_image = preprocess_image(image)
+        # Step 1: Convert to RGB
+        rgb_image = preprocess_image(image)
+        
+        # Step 2: Apply transforms
+        img_tensor = transform(rgb_image).unsqueeze(0)
         
         # Apply transforms to the processed image
-        img_tensor = transform(processed_image).unsqueeze(0)
-        
         with torch.no_grad():
             outputs = model(img_tensor)
             probabilities = F.softmax(outputs, dim=1)
