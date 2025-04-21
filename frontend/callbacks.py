@@ -42,13 +42,10 @@ def register_callbacks(app):
             return None, True
         
         try:
-            # Parse content
             decoded = parse_image_content(content)
             
-            # Open image to get details
             width, height, img_format, img_size = get_image_details(decoded)
             
-            # Create image preview and details
             return [
                 dbc.Row([
                     dbc.Col([
@@ -105,24 +102,18 @@ def register_callbacks(app):
         if n_clicks is None or n_clicks == 0 or content is None:
             raise PreventUpdate
         
-        # Show loading spinner 
         try:
-            # Parse content
             decoded = parse_image_content(content)
             
-            # Make API request
             try:
-                # Call the actual API for prediction
                 result = api_predict(decoded)
                 
                 disease = result['disease']
                 recommendation = result['recommendation']
-                confidence = result.get('confidence', 92)  # Default to 92 if not provided
+                confidence = result.get('confidence', 92)
                 
-                # Format the treatment recommendations
                 treatment_points = format_treatment_points(recommendation)
                 
-                # Create results card
                 results_card = dbc.Card([
                     dbc.CardHeader([
                         html.H3([html.I(className="fas fa-clipboard-check me-2"), "Diagnosis Results"], 
@@ -320,7 +311,6 @@ def register_callbacks(app):
             raise PreventUpdate
         
         try:
-            # Parse content and call API to get the real results
             decoded = parse_image_content(content)
             result = api_predict(decoded)
             
@@ -328,25 +318,21 @@ def register_callbacks(app):
             recommendation = result['recommendation']
             confidence = result.get('confidence', 92)
             
-            # If the API returned a PDF, use it directly
             if result.get('pdf') and result['pdf'] is not None:
                 import base64
                 pdf_data = base64.b64decode(result['pdf'])
                 return dcc.send_bytes(pdf_data, f"crop_disease_report.pdf")
             
-            # Otherwise generate a PDF
             from reportlab.lib.pagesizes import letter
             from reportlab.lib import colors
             from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image as RLImage
             from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
             from reportlab.lib.units import inch
             
-            # Create an in-memory PDF
             buffer = BytesIO()
             doc = SimpleDocTemplate(buffer, pagesize=letter)
             styles = getSampleStyleSheet()
             
-            # Create custom styles
             title_style = ParagraphStyle(
                 'Title',
                 parent=styles['Heading1'],
@@ -364,25 +350,20 @@ def register_callbacks(app):
                 spaceAfter=6
             )
             
-            # Content elements
             elements = []
             
-            # Title
             elements.append(Paragraph("Crop Disease Analysis Report", title_style))
             elements.append(Spacer(1, 0.25*inch))
             
-            # Add the image
             if content:
                 try:
                     img_data = parse_image_content(content)
                     img = Image.open(BytesIO(img_data))
                     
-                    # Save as PNG for ReportLab
                     img_buffer = BytesIO()
                     img.save(img_buffer, format='PNG')
                     img_buffer.seek(0)
                     
-                    # Add image with a max width of 4 inches, maintaining aspect ratio
                     img_width, img_height = img.size
                     aspect = img_height / float(img_width)
                     max_width = 4 * inch
@@ -394,17 +375,14 @@ def register_callbacks(app):
                     elements.append(Paragraph(f"Error including image: {str(e)}", styles["BodyText"]))
                     elements.append(Spacer(1, 0.25*inch))
             
-            # Disease diagnosis
             elements.append(Paragraph("Detected Disease", heading_style))
             elements.append(Paragraph(disease, styles["BodyText"]))
             elements.append(Spacer(1, 0.2*inch))
             
-            # Confidence
             elements.append(Paragraph("Confidence Score", heading_style))
             elements.append(Paragraph(f"{confidence:.1f}%", styles["BodyText"]))
             elements.append(Spacer(1, 0.2*inch))
             
-            # Treatment recommendations
             elements.append(Paragraph("Treatment Recommendations", heading_style))
             treatment_points = format_treatment_points(recommendation)
             
@@ -413,13 +391,11 @@ def register_callbacks(app):
             
             elements.append(Spacer(1, 0.2*inch))
             
-            # Build the PDF
             doc.build(elements)
             buffer.seek(0)
             
             return dcc.send_bytes(buffer.getvalue(), f"crop_disease_report.pdf")
         except Exception as e:
-            # In case of error, return a descriptive text file instead
             return dict(
                 content=f"Error generating PDF: {str(e)}",
                 filename="error_report.txt"

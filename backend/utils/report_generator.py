@@ -7,7 +7,6 @@ import logging
 from typing import Optional, Tuple
 from io import BytesIO
 
-# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -51,12 +50,9 @@ def process_image(image_path: str, max_size: int = 1000) -> Optional[Image.Image
     """
     try:
         img = Image.open(image_path)
-        
-        # Convert to RGB if necessary
         if img.mode != 'RGB':
             img = img.convert('RGB')
             
-        # Resize if too large
         width, height = img.size
         if width > max_size or height > max_size:
             ratio = min(max_size/width, max_size/height)
@@ -82,27 +78,22 @@ def generate_report(image_path: str, disease: str, confidence: float, recommenda
     Returns:
         Base64 encoded PDF data
     """
-    # Validate inputs
     is_valid, error_msg = validate_inputs(image_path, disease, confidence, recommendation)
     if not is_valid:
         logger.error(f"Invalid inputs: {error_msg}")
         raise ValueError(error_msg)
     
-    # Process image
     img = process_image(image_path)
     if img is None:
         raise ValueError("Failed to process image")
     
-    # Save processed image to temporary file
     temp_img_path = None
     pdf_buffer = None
     try:
-        # Create temporary file for the processed image - use a more unique filename
         unique_id = datetime.now().strftime("%Y%m%d%H%M%S%f")
         temp_img_path = os.path.join(os.path.dirname(image_path), f"temp_{unique_id}.jpg")
         img.save(temp_img_path, "JPEG", quality=95)
         
-        # Initialize PDF with diagnostic messages
         print(f"Creating PDF report...")
         print(f"Image path: {image_path}")
         print(f"Temporary image path: {temp_img_path}")
@@ -112,11 +103,7 @@ def generate_report(image_path: str, disease: str, confidence: float, recommenda
         pdf = FPDF()
         pdf.add_page()
         
-        # Set up fonts - using default fonts instead of DejaVu
-        # pdf.add_font('DejaVu', '', 'DejaVuSansCondensed.ttf', uni=True)
-        # pdf.add_font('DejaVu', 'B', 'DejaVuSansCondensed-Bold.ttf', uni=True)
         
-        # Header
         pdf.set_font('Arial', 'B', 16)
         pdf.cell(0, 10, "Crop Disease Diagnosis Report", ln=True, align='C')
         
@@ -124,19 +111,15 @@ def generate_report(image_path: str, disease: str, confidence: float, recommenda
         pdf.cell(0, 10, f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}", ln=True, align='C')
         pdf.ln(10)
         
-        # Image
         try:
-            # Verify the temporary image file exists
             if not os.path.exists(temp_img_path):
                 raise FileNotFoundError(f"Temporary image file not found: {temp_img_path}")
             
-            # Calculate image dimensions
             img_width, img_height = img.size
             aspect = img_width / float(img_height)
             display_width = 150  # mm
             display_height = display_width / aspect
             
-            # Add image to PDF
             pdf.image(temp_img_path, x=30, y=pdf.get_y(), w=display_width, h=display_height)
             pdf.ln(display_height + 10)
             
@@ -144,7 +127,6 @@ def generate_report(image_path: str, disease: str, confidence: float, recommenda
             logger.error(f"Error adding image to report: {str(e)}")
             pdf.cell(0, 10, "Image not available", ln=True)
         
-        # Diagnosis section
         pdf.set_font('Arial', 'B', 14)
         pdf.cell(0, 10, "Diagnosis:", ln=True)
         
@@ -153,19 +135,14 @@ def generate_report(image_path: str, disease: str, confidence: float, recommenda
         pdf.cell(0, 10, f"Confidence: {confidence:.1f}%", ln=True)
         pdf.ln(10)
         
-        # Recommendations section
         pdf.set_font('Arial', 'B', 14)
         pdf.cell(0, 10, "Recommendations:", ln=True)
         
         pdf.set_font('Arial', '', 12)
         
-        # Process recommendations with proper wrapping
-        # Ensure recommendations is properly sanitized
         if not recommendation:
             recommendation = "No specific recommendations available."
         
-        # Process string to ensure it's properly encoded for PDF
-        # Replace any problematic characters
         clean_recommendation = recommendation.replace("\r", "\n").replace("\t", "    ")
         
         paragraphs = clean_recommendation.split('\n')
@@ -175,17 +152,14 @@ def generate_report(image_path: str, disease: str, confidence: float, recommenda
                 pdf.multi_cell(0, 10, paragraph.strip())
                 pdf.ln(5)
         
-        # Generate PDF in memory
         pdf_buffer = BytesIO()
         pdf.output(pdf_buffer)
         pdf_buffer.seek(0)
         
-        # Convert to base64
         pdf_data = pdf_buffer.getvalue()
         encoded_pdf = base64.b64encode(pdf_data).decode('utf-8')
         
-        # Diagnostic - check if PDF data is valid
-        if len(encoded_pdf) < 100:  # Very small PDFs are likely invalid
+        if len(encoded_pdf) < 100:
             print(f"WARNING: Generated PDF is suspiciously small ({len(encoded_pdf)} bytes)")
         else:
             print(f"PDF generated successfully ({len(encoded_pdf)} bytes)")
@@ -197,7 +171,6 @@ def generate_report(image_path: str, disease: str, confidence: float, recommenda
         raise RuntimeError(f"Failed to generate PDF report: {str(e)}")
         
     finally:
-        # Clean up resources - ensure this happens even if there's an error
         if temp_img_path and os.path.exists(temp_img_path):
             try:
                 os.unlink(temp_img_path)

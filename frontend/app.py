@@ -5,13 +5,11 @@ Dash app initialization module.
 import dash
 import dash_bootstrap_components as dbc
 
-# Initialize the Dash app with a Bootstrap theme
 app = dash.Dash(__name__, 
                 external_stylesheets=[dbc.themes.FLATLY, 
                                       dbc.icons.FONT_AWESOME],
                 suppress_callback_exceptions=True)
 
-# Custom CSS for enhanced visual appeal
 app.index_string = '''
 <!DOCTYPE html>
 <html>

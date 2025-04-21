@@ -9,10 +9,8 @@ def create_app():
     """
     app = Flask(__name__)
     
-    # Enable CORS
     CORS(app)
     
-    # Register blueprints
     from backend.app.routes import api
     app.register_blueprint(api)
     

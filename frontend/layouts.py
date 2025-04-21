@@ -6,10 +6,8 @@ import dash
 from dash import dcc, html
 import dash_bootstrap_components as dbc
 
-# Layout definition
 layout = dbc.Container([
     dbc.Row([
-        # Header
         dbc.Col([
             html.Div([
                 html.H1("🌱 Crop Disease Detector", className="text-success text-center mb-1", 
@@ -22,7 +20,6 @@ layout = dbc.Container([
     ]),
     
     dbc.Row([
-        # Sidebar
         dbc.Col([
             html.Div([
                 html.Div(className="text-center mb-4", children=[
@@ -76,9 +73,7 @@ layout = dbc.Container([
             ], className="sticky-top p-4 sidebar")
         ], width=3, className="d-none d-md-block"),
         
-        # Main content
         dbc.Col([
-            # Upload Card
             dbc.Card([
                 dbc.CardHeader([
                     html.H3([html.I(className="fas fa-cloud-upload-alt me-2"), "Upload Image"], 
@@ -105,10 +100,8 @@ layout = dbc.Container([
                         accept='image/*'
                     ),
                     
-                    # Image preview and details
                     html.Div(id='output-image-upload'),
                     
-                    # Analysis button
                     html.Div([
                         dbc.Button([
                             html.I(className="fas fa-search-plus me-2"), 
@@ -122,10 +115,8 @@ layout = dbc.Container([
                 ])
             ], className="app-card mb-4"),
             
-            # Results Container (initially hidden)
             html.Div(id='results-container', className="results-animation", style={'display': 'none'}),
             
-            # Tips Card (shown when no image is uploaded)
             dbc.Card([
                 dbc.CardHeader([
                     html.H3([html.I(className="fas fa-lightbulb me-2"), "Tips for Better Results"], 
@@ -164,8 +155,7 @@ layout = dbc.Container([
                     ])
                 ])
             ], className="app-card mb-4", id="tips-card"),
-            
-            # Footer
+
             html.Footer([
                 html.P([
                     "Crop Disease Detector | Developed with ", 

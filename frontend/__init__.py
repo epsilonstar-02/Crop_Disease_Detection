@@ -6,7 +6,6 @@ from frontend.app import app
 from frontend.layouts import layout
 from frontend.callbacks import register_callbacks
 
-# Initialize app
 app.layout = layout
 register_callbacks(app)
 

@@ -30,15 +30,12 @@ if __name__ == '__main__':
     elif args.component == 'frontend':
         run_frontend()
     elif args.component == 'all':
-        # Start both components in parallel
         backend_thread = threading.Thread(target=run_backend)
         frontend_thread = threading.Thread(target=run_frontend)
         
         backend_thread.start()
-        # Wait a few seconds for backend to initialize before starting frontend
         threading.Timer(5.0, frontend_thread.start).start()
         
-        # Keep main thread alive
         try:
             while True:
                 threading.Event().wait(1)

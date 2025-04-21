@@ -154,6 +154,4 @@ def get_treatment_cost(disease):
         "Cassava Green Mottle (CGM)": "Low",
         "Cassava Mosaic Disease (CMD)": "Medium"
     }
-    
-    # Look up in map or default to Medium if unknown disease
     return treatment_cost_map.get(disease, "Medium") 
